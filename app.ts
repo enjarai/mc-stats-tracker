@@ -25,6 +25,7 @@ db.exec(`
 
 const job = new CronJob(queryCron, async () => {
   const now = new Date();
+  console.log(`⏰ Querying mod downloads at ${now.toTimeString()}`)
   const stmt = db.prepare('INSERT INTO stats VALUES ("modrinth", ?, ?, ?, ?, ?);');
 
   for (const mod of modrinthMods) {
