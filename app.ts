@@ -32,6 +32,7 @@ const job = new CronJob(queryCron, async () => {
     const data = await (await fetch(`https://api.modrinth.com/v2/project/${mod}`)).json() as any;
 
     stmt.run(mod, now, data.downloads, data.followers, data.versions.length);
+    console.log(`✅ Fetched ${mod}`);
   }
 
   stmt.finalize();
