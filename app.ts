@@ -48,15 +48,22 @@ app.get('/downloads/modrinth', (_req: Request, res: Response) => {
     ORDER BY timestamp ASC;
   `;
   const resJson: any[] = [];
+  const lasts: Record<string, any> = {};
 
   db.each(query, (_err, row: any) => {
     resJson.push({
       project: row.project,
       timestamp: row.timestamp,
       downloads: row.downloads,
+      downloads_diff: row.downloads - (lasts[row.project]?.downloads || row.downloads),
       followers: row.followers,
       versions: row.versions,
     });
+    lasts[row.project] = {
+      downloads: row.downloads,
+      followers: row.followers,
+      versions: row.versions,
+    };
   }, (_err, _count) => {
     res.send(resJson);
   });
