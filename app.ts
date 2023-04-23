@@ -25,7 +25,7 @@ db.exec(`
 
 const job = new CronJob(queryCron, async () => {
   const now = new Date();
-  console.log(`⏰ Querying mod downloads at ${now.toTimeString()}`)
+  console.log(`⏰ Querying mod downloads at ${now.toTimeString()}`);
   const stmt = db.prepare('INSERT INTO stats VALUES ("modrinth", ?, ?, ?, ?, ?);');
 
   for (const mod of modrinthMods) {
@@ -67,4 +67,5 @@ app.get('/downloads/modrinth', (req: Request, res: Response) => {
 
 app.listen(port, () => {
   console.log(`⚡️ Server is running at http://localhost:${port}`);
+  console.log(`📝 Tracking data for the following mods: ${modrinthMods}`);
 });
