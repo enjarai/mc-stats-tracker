@@ -39,7 +39,7 @@ const job = new CronJob(queryCron, async () => {
 });
 job.start();
 
-app.get('/downloads/modrinth', (req: Request, res: Response) => {
+app.get('/downloads/modrinth', (_req: Request, res: Response) => {
   const query = `
     SELECT 
       timestamp, project, downloads, followers, versions 
@@ -49,7 +49,7 @@ app.get('/downloads/modrinth', (req: Request, res: Response) => {
   `;
   const resJson: Record<string, any> = {};
 
-  db.each(query, (err, row: any) => {
+  db.each(query, (_err, row: any) => {
     const project = row.project as string;
     const snapshots = resJson[project] || [];
 
@@ -61,7 +61,7 @@ app.get('/downloads/modrinth', (req: Request, res: Response) => {
     });
 
     resJson[project] = snapshots;
-  }).wait(() => {
+  }, (_err, _count) => {
     res.send(resJson);
   });
 });
