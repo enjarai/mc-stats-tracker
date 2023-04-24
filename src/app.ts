@@ -30,6 +30,11 @@ db.exec(`
     followers INTEGER,
     versions INTEGER
   );
+  CREATE TABLE IF NOT EXISTS revenue (
+    timestamp DATETIME NOT NULL,
+    all_time_balance REAL NOT NULL,
+    balance REAL NOT NULL
+  )
 `);
 
 const job = new CronJob(queryCron, async () => {
@@ -71,6 +76,28 @@ const job = new CronJob(queryCron, async () => {
   }
 
   stmt.finalize();
+
+  console.log(`💵 Querying revenue statistics at ${now.toTimeString()}`)
+
+  const rstmt = db.prepare('INSERT INTO revenue VALUES (?, ?, ?)')
+
+  for (const user of users) {
+    for (const source in users.source_ids || []) {
+      const sourceData = sources[source];
+      console.log(user);
+      console.log(source);
+      if(!sourceData.token) continue;
+
+      const balanceURL = `${sourceData.base_url}/user`;
+      const balanceData = await (await fetch(balanceURL, {headers: {
+        'Authorization': sourceData.token
+      }})).json() as any;
+
+      const payoutInfoURL = `${sourceData.base_url}/user/${user.source_ids[source]}/payouts`;
+      console.log(payoutInfoURL);
+    }
+  }
+
 });
 job.start();
 
