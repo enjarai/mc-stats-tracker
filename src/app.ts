@@ -32,7 +32,7 @@ db.exec(`
   );
 `);
 
-const job = new CronJob({cronTime: queryCron, runOnInit: true, onTick: async () => {
+const job = new CronJob({cronTime: queryCron, onTick: async () => {
   const now = new Date();
   console.log(`⏰ Querying mod downloads at ${now.toTimeString()}`);
   const stmt = db.prepare('INSERT INTO stats VALUES (?, ?, ?, ?, ?, ?);');
