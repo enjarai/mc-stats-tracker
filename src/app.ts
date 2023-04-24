@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import fetch from 'cross-fetch';
+import fetch, { Headers } from 'cross-fetch';
 import { CronJob } from 'cron';
 import { Database } from 'sqlite3';
 import { parse } from 'yaml';
@@ -12,7 +12,7 @@ const port = config?.port || 8080;
 const queryCron = config?.query_cron || '0 */3 * * *';
 const users = config?.users || [];
 const projects = config?.projects || [];
-const sources = config?.sources || [];
+const sources = config?.sources || []; 
 const dbPath = config?.db_path || './data.sqlite';
 
 const dbDir = dirname(dbPath);
@@ -36,7 +36,7 @@ db.exec(`
     timestamp DATETIME NOT NULL,
     all_time_balance REAL NOT NULL,
     balance REAL NOT NULL
-  )
+  );
 `);
 
 const job = new CronJob({cronTime: queryCron, runOnInit: true, onTick: async () => {
@@ -48,7 +48,6 @@ const job = new CronJob({cronTime: queryCron, runOnInit: true, onTick: async () 
     try {
       for (const source in user.source_ids || []) {
         const sourceData = sources[source];
-        console.log(sourceData);
         const url = `${sourceData.base_url}/user/${user.source_ids[source]}/projects`;
         const data = await (await fetch(url)).json() as any;
 
@@ -80,31 +79,66 @@ const job = new CronJob({cronTime: queryCron, runOnInit: true, onTick: async () 
 
   stmt.finalize();
 
-  console.log(`💵 Querying revenue statistics at ${now.toTimeString()}`)
+  console.log(`📝 Querying revenue statistics at ${now.toTimeString()}`)
 
-  const rstmt = db.prepare('INSERT INTO revenue VALUES (?, ?, ?)')
+  const rstmt = db.prepare('INSERT INTO revenue VALUES (?, ?, ?, ?, ?);')
 
   for (const user of users) { 
-    for (const source in user.source_ids || []) {
-      const sourceData = sources[source];
-      if(!sourceData.token) continue;
-      const balanceURL = `${sourceData.base_url}/user`;
-      const balanceData = await (await fetch(balanceURL, {headers: {
-        'Authorization': sourceData.token
-      }})).json() as any; 
+    try {
+      for (const source in user.source_ids || []) {
+        const sourceData = sources[source]
+        if(!sourceData.token) continue
 
-      const payoutInfoURL = `${sourceData.base_url}/user/${user.source_ids[source]}/payouts`;
-      const payoutData = await (await fetch(payoutInfoURL, {headers: {
-        'Authorization': sourceData.token
-      }})).json() as any; 
+        const requestOptions = {
+          method: 'GET',
+          headers: {
+            'Authorization': sourceData.token
+          }
+        }
 
-      console.log({source, id: user.id, now, all_time: payoutData.all_time, balance: balanceData.payout_data.balance})
- 
-      rstmt.run(source, user.id, now, payoutData.all_time, balanceData.payout_data.balance)
+        const balanceURL = `${sourceData.base_url}/user`
+        const balanceData = await (await fetch(balanceURL, requestOptions)).json() as any
+        const payoutInfoURL = `${sourceData.base_url}/user/${user.source_ids[source]}/payouts`
+        const payoutData = await (await fetch(payoutInfoURL, requestOptions)).json() as any
+   
+        const formatter =  new Intl.NumberFormat('en-US')
+
+        rstmt.run(source, user.id, now, payoutData.all_time, balanceData.payout_data.balance)
+
+        console.log(`✅ Fetched revenue data from ${source} (${user.source_ids[source]})`)
+      }
+    } catch (e) {
+      console.error(`💥 Error fetching revenue data: ${e}`)
     }
   } 
+
+  rstmt.finalize();
 }});
 job.start();
+
+app.get('/revenue/:user/:source', (req: Request, res: Response) => {
+  const source = req.params.source;
+  const user = req.params.user;
+  const query = `
+    SELECT 
+      user, timestamp, all_time_balance, balance
+    FROM revenue
+    WHERE type = ? AND user = ?
+    ORDER BY timestamp ASC
+  `;
+
+  const resJSON: any[] = [];
+
+  db.each(query, source, user, (_err: any, row: any) => {
+    resJSON.push({
+      timestamp: row.timestamp,
+      all_time_balance: row.all_time_balance,
+      balance: row.balance
+    })
+  }, (_err: any, _count: any) => {
+    res.send(resJSON);
+  });
+});
 
 app.get('/downloads/:source', (req: Request, res: Response) => {
   const source = req.params.source;
