@@ -18,7 +18,9 @@ When building a docker image via the dockerfile, you must pre-prepare the `confi
 
 To build and run the image, use the following command (you may change the routed port):
 
-```bash
+> ℹ️ When building the `Dockerfile`, sometimes the `RUN npm ci` command fails, this does not affect the image at all.
+
+```sh
 # Build the image.
 docker build -t mc_stats_fetcher -f Dockerfile .
 
