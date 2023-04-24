@@ -31,6 +31,8 @@ db.exec(`
     versions INTEGER
   );
   CREATE TABLE IF NOT EXISTS revenue (
+    type TEXT NOT NULL,
+    user TEXT NOT NULL,
     timestamp DATETIME NOT NULL,
     all_time_balance REAL NOT NULL,
     balance REAL NOT NULL
@@ -46,6 +48,7 @@ const job = new CronJob({cronTime: queryCron, runOnInit: true, onTick: async () 
     try {
       for (const source in user.source_ids || []) {
         const sourceData = sources[source];
+        console.log(sourceData);
         const url = `${sourceData.base_url}/user/${user.source_ids[source]}/projects`;
         const data = await (await fetch(url)).json() as any;
 
@@ -58,7 +61,7 @@ const job = new CronJob({cronTime: queryCron, runOnInit: true, onTick: async () 
     } catch (e) {
       console.error(`💥 Error fetching data for user ${user.id}: `, e)
     }
-  }
+  } 
 
   for (const mod of projects) {
     try {
@@ -76,28 +79,30 @@ const job = new CronJob({cronTime: queryCron, runOnInit: true, onTick: async () 
   }
 
   stmt.finalize();
-  
+
   console.log(`💵 Querying revenue statistics at ${now.toTimeString()}`)
 
   const rstmt = db.prepare('INSERT INTO revenue VALUES (?, ?, ?)')
 
-  for (const user of users) {
-    for (const source in users.source_ids || []) {
+  for (const user of users) { 
+    for (const source in user.source_ids || []) {
       const sourceData = sources[source];
-      console.log(user);
-      console.log(source);
       if(!sourceData.token) continue;
-
       const balanceURL = `${sourceData.base_url}/user`;
       const balanceData = await (await fetch(balanceURL, {headers: {
         'Authorization': sourceData.token
-      }})).json() as any;
+      }})).json() as any; 
 
       const payoutInfoURL = `${sourceData.base_url}/user/${user.source_ids[source]}/payouts`;
-      console.log(payoutInfoURL);
-    }
-  }
+      const payoutData = await (await fetch(payoutInfoURL, {headers: {
+        'Authorization': sourceData.token
+      }})).json() as any; 
 
+      console.log({source, id: user.id, now, all_time: payoutData.all_time, balance: balanceData.payout_data.balance})
+ 
+      rstmt.run(source, user.id, now, payoutData.all_time, balanceData.payout_data.balance)
+    }
+  } 
 }});
 job.start();
 
@@ -111,7 +116,7 @@ app.get('/downloads/:source', (req: Request, res: Response) => {
     ORDER BY timestamp ASC;
   `;
   const resJson: any[] = [];
-  const lasts: Record<string, any> = {};
+  const lasts: Record<string, any> = {}; 
 
   db.each(query, source, (_err, row: any) => {
     resJson.push({
