@@ -6,6 +6,10 @@ sources:
         base_url: https://api.modrinth.com/v2
     curseforge:
         base_url: https://curserinth-api.kuylar.dev/v2
+users:
+    -   id: enjarai
+        source_ids:
+            modrinth: enjarai
 projects:
     -   id: show-me-your-skin
         source_ids:

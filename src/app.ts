@@ -10,6 +10,7 @@ const config = parse(readFileSync('config.yaml', 'utf-8'));
 const app = express();
 const port = config?.port || 8080;
 const queryCron = config?.query_cron || '0 */3 * * *';
+const users = config?.users || [];
 const projects = config?.projects || [];
 const sources = config?.sources || [];
 const dbPath = config?.db_path || './data.sqlite';
@@ -36,6 +37,24 @@ const job = new CronJob(queryCron, async () => {
   console.log(`⏰ Querying mod downloads at ${now.toTimeString()}`);
   const stmt = db.prepare('INSERT INTO stats VALUES (?, ?, ?, ?, ?, ?);');
 
+  for (const user of users) {
+    try {
+      for (const source in user.source_ids || []) {
+        const sourceData = sources[source];
+        const url = `${sourceData.base_url}/user/${user.source_ids[source]}/projects`;
+        const data = await (await fetch(url)).json() as any;
+
+        for (const mod of data) {
+          stmt.run(source, mod.slug, now, mod.downloads, mod.followers, mod.versions.length);
+
+          console.log(`✅ Fetched data for ${mod.slug} (${user.id}) from ${Object.keys(user.source_ids)}`);
+        }
+      } 
+    } catch (e) {
+      console.error(`💥 Error fetching data for user ${user.id}: `, e)
+    }
+  }
+
   for (const mod of projects) {
     try {
       for (const source in mod.source_ids || []) {
@@ -45,9 +64,9 @@ const job = new CronJob(queryCron, async () => {
 
         stmt.run(source, mod.id, now, data.downloads, data.followers, data.versions.length);
       } 
-      console.log(`✅ Fetched ${mod.id} from ${Object.keys(mod.source_ids)}`);
+      console.log(`✅ Fetched data for ${mod.id} from ${Object.keys(mod.source_ids)}`);
     } catch (e) {
-      console.error(`💥 Error fetching data for ${mod.id}: `, e)
+      console.error(`💥 Error fetching data for project ${mod.id}: `, e)
     }
   }
 
@@ -88,5 +107,6 @@ app.get('/downloads/:source', (req: Request, res: Response) => {
 
 app.listen(port, () => {
   console.log(`⚡️ Server is running at http://localhost:${port}`);
+  console.log(`📝 Tracking data for the following users: ${users.map((i: any) => i.id)}`);
   console.log(`📝 Tracking data for the following projects: ${projects.map((i: any) => i.id)}`);
 });
