@@ -1,15 +1,16 @@
 import express, { Request, Response } from 'express';
-import dotenv from 'dotenv';
 import fetch from 'cross-fetch';
 import { CronJob } from 'cron';
 import { Database } from 'sqlite3';
+import { parse } from 'yaml';
+import { readFileSync } from 'fs';
 
-dotenv.config();
-
+const config = parse(readFileSync('config.yaml', 'utf-8'));
 const app = express();
-const port = process.env.PORT || 8080;
-const queryCron = process.env.QUERY_CRON || '0 */3 * * *';
-const modrinthMods = process.env.MODRINTH_MODS?.split(',') || ['show-me-your-skin', 'do-a-barrel-roll'];
+const port = config?.port || 8080;
+const queryCron = config?.query_cron || '0 */3 * * *';
+const projects = config?.projects || [];
+const sources = config?.sources || [];
 const db = new Database('data.sqlite');
 
 db.exec(`
@@ -26,31 +27,40 @@ db.exec(`
 const job = new CronJob(queryCron, async () => {
   const now = new Date();
   console.log(`⏰ Querying mod downloads at ${now.toTimeString()}`);
-  const stmt = db.prepare('INSERT INTO stats VALUES ("modrinth", ?, ?, ?, ?, ?);');
+  const stmt = db.prepare('INSERT INTO stats VALUES (?, ?, ?, ?, ?, ?);');
 
-  for (const mod of modrinthMods) {
-    const data = await (await fetch(`https://api.modrinth.com/v2/project/${mod}`)).json() as any;
+  for (const mod of projects) {
+    try {
+      for (const source in mod.source_ids || []) {
+        const sourceData = sources[source];
+        const url = `${sourceData.base_url}/project/${mod.source_ids[source]}`;
+        const data = await (await fetch(url)).json() as any;
 
-    stmt.run(mod, now, data.downloads, data.followers, data.versions.length);
-    console.log(`✅ Fetched ${mod}`);
+        stmt.run(source, mod.id, now, data.downloads, data.followers, data.versions.length);
+      } 
+      console.log(`✅ Fetched ${mod.id} from ${Object.keys(mod.source_ids)}`);
+    } catch (e) {
+      console.error(`💥 Error fetching data for ${mod.id}: `, e)
+    }
   }
 
   stmt.finalize();
 });
 job.start();
 
-app.get('/downloads/modrinth', (_req: Request, res: Response) => {
+app.get('/downloads/:source', (req: Request, res: Response) => {
+  const source = req.params.source;
   const query = `
     SELECT 
       timestamp, project, downloads, followers, versions 
     FROM stats 
-    WHERE type = "modrinth" 
+    WHERE type = ? 
     ORDER BY timestamp ASC;
   `;
   const resJson: any[] = [];
   const lasts: Record<string, any> = {};
 
-  db.each(query, (_err, row: any) => {
+  db.each(query, source, (_err, row: any) => {
     resJson.push({
       project: row.project,
       timestamp: row.timestamp,
@@ -71,5 +81,5 @@ app.get('/downloads/modrinth', (_req: Request, res: Response) => {
 
 app.listen(port, () => {
   console.log(`⚡️ Server is running at http://localhost:${port}`);
-  console.log(`📝 Tracking data for the following mods: ${modrinthMods}`);
+  console.log(`📝 Tracking data for the following projects: ${projects.map((i: any) => i.id)}`);
 });

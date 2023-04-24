@@ -1,0 +1,12 @@
+port: 8080
+query_cron: 0 */3 * * *
+sources: 
+    modrinth:
+        base_url: https://api.modrinth.com/v2
+    curseforge:
+        base_url: https://curserinth-api.kuylar.dev/v2
+projects:
+    -   id: show-me-your-skin
+        source_ids:
+            modrinth: show-me-your-skin
+            curseforge: 622010

@@ -130,3 +130,4 @@ dist
 .pnp.*
 
 data.sqlite
+config.yaml
