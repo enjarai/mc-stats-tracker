@@ -10,20 +10,10 @@ npm run build
 npm run start
 ```
 
-## Docker Usage
-
-When building a docker image via the dockerfile, you must pre-prepare the `config.yaml` file:
-
-- Ensure the port is set to `8080`.
-
-To build and run the image, use the following command (you may change the routed port):
-
-> ℹ️ When building the `Dockerfile`, sometimes the `RUN npm ci` command fails, this does not affect the image at all.
+*You can use the following pm2 command if you want to run it in the background:*
 
 ```sh
-# Build the image.
-docker build -t mc_stats_fetcher -f Dockerfile .
-
-# Run the image, port 8080 is mapped to port 8192 in this example.
-docker run -i -p 8192:8080 -v mc_stats_db_vol:/usr/src/app/data.sqlite -t mc_stats_fetcher:latest
+npm install
+npm run build
+pm2 start npm --name "mc_stats_tracker" -- start
 ```
