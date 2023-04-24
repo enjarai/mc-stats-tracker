@@ -25,6 +25,5 @@ To build and run the image, use the following command (you may change the routed
 docker build -t mc_stats_fetcher -f Dockerfile .
 
 # Run the image, port 8080 is mapped to port 8192 in this example.
-# 
 docker run -i -p 8192:8080 -v mc_stats_db_vol:/usr/src/app/data.sqlite -t mc_stats_fetcher:latest
 ```
