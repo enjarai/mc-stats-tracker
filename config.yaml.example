@@ -4,6 +4,7 @@ query_cron: 0 */3 * * *
 sources: 
     modrinth:
         base_url: https://api.modrinth.com/v2
+        token: replace-if-want
     curseforge:
         base_url: https://curserinth-api.kuylar.dev/v2
 users:
