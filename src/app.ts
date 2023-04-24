@@ -37,7 +37,7 @@ db.exec(`
   )
 `);
 
-const job = new CronJob(queryCron, async () => {
+const job = new CronJob({cronTime: queryCron, runOnInit: true, onTick: async () => {
   const now = new Date();
   console.log(`⏰ Querying mod downloads at ${now.toTimeString()}`);
   const stmt = db.prepare('INSERT INTO stats VALUES (?, ?, ?, ?, ?, ?);');
@@ -76,7 +76,7 @@ const job = new CronJob(queryCron, async () => {
   }
 
   stmt.finalize();
-
+  
   console.log(`💵 Querying revenue statistics at ${now.toTimeString()}`)
 
   const rstmt = db.prepare('INSERT INTO revenue VALUES (?, ?, ?)')
@@ -98,7 +98,7 @@ const job = new CronJob(queryCron, async () => {
     }
   }
 
-});
+}});
 job.start();
 
 app.get('/downloads/:source', (req: Request, res: Response) => {
