@@ -3,7 +3,8 @@ import fetch from 'cross-fetch';
 import { CronJob } from 'cron';
 import { Database } from 'sqlite3';
 import { parse } from 'yaml';
-import { readFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync } from 'fs';
+import path, { dirname, resolve } from 'path';
 
 const config = parse(readFileSync('config.yaml', 'utf-8'));
 const app = express();
@@ -11,7 +12,13 @@ const port = config?.port || 8080;
 const queryCron = config?.query_cron || '0 */3 * * *';
 const projects = config?.projects || [];
 const sources = config?.sources || [];
-const db = new Database('data.sqlite');
+const dbPath = config?.db_path || './data.sqlite';
+
+const dbDir = dirname(dbPath);
+if (!existsSync(dbDir)) {
+  mkdirSync(dbDir, { recursive: true });
+}
+const db = new Database(dbPath);
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS stats (
