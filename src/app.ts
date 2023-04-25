@@ -145,6 +145,7 @@ app.get('/revenue/:user/:source', (req: Request, res: Response) => {
 app.get('/downloads/:source', (req: Request, res: Response) => {
   const source = req.params.source;
   const hours = parseInt(req.query.hours as string) || 24;
+  const falloff = req.query.falloff;
   const query = `
     SELECT 
       timestamp, project, downloads, followers, versions 
@@ -168,9 +169,13 @@ app.get('/downloads/:source', (req: Request, res: Response) => {
     }
 
     if (timestamp.diff(startTimes[project]).as('milliseconds') > interval.as('milliseconds')) {
+      while (timestamp.diff(startTimes[project]).as('milliseconds') > interval.as('milliseconds')) {
+        startTimes[project] = startTimes[project].plus(interval);
+      }
+
       resJson.push({
         project,
-        timestamp: startTimes[project].plus(interval).toMillis(),
+        timestamp: startTimes[project].toMillis(),
         downloads: row.downloads,
         downloads_diff: row.downloads - starts[project].downloads,
         followers: row.followers,
@@ -178,22 +183,21 @@ app.get('/downloads/:source', (req: Request, res: Response) => {
       });
 
       starts[project] = row;
-      while (timestamp.diff(startTimes[project]).as('milliseconds') > interval.as('milliseconds')) {
-        startTimes[project] = startTimes[project].plus(interval);
-      }
     }
 
     lasts[project] = row;
   }, (_err, _count) => {
-    for (const project in lasts) {
-      resJson.push({
-        project,
-        timestamp: lasts[project].timestamp,
-        downloads: lasts[project].downloads,
-        downloads_diff: lasts[project].downloads - starts[project].downloads,
-        followers: lasts[project].followers,
-        versions: lasts[project].versions,
-      });
+    if (falloff) {
+      for (const project in lasts) {
+        resJson.push({
+          project,
+          timestamp: lasts[project].timestamp,
+          downloads: lasts[project].downloads,
+          downloads_diff: lasts[project].downloads - starts[project].downloads,
+          followers: lasts[project].followers,
+          versions: lasts[project].versions,
+        });
+      }
     }
 
     res.send(resJson);
