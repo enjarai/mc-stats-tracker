@@ -5,6 +5,7 @@ import { Database } from 'sqlite3';
 import { parse } from 'yaml';
 import { existsSync, mkdirSync, readFileSync } from 'fs';
 import path, { dirname, resolve } from 'path';
+import { Duration } from 'luxon';
 
 const config = parse(readFileSync('config.yaml', 'utf-8'));
 const app = express();
@@ -142,6 +143,7 @@ app.get('/revenue/:user/:source', (req: Request, res: Response) => {
 
 app.get('/downloads/:source', (req: Request, res: Response) => {
   const source = req.params.source;
+  const hours = parseInt(req.query.hours as string) || 24;
   const query = `
     SELECT 
       timestamp, project, downloads, followers, versions 
@@ -150,6 +152,8 @@ app.get('/downloads/:source', (req: Request, res: Response) => {
     ORDER BY timestamp ASC;
   `;
   const resJson: any[] = [];
+  const interval = Duration.fromMillis(hours * 60 * 60 * 1000);
+  const starts: Record<string, any> = {};
   const lasts: Record<string, any> = {}; 
 
   db.each(query, source, (_err, row: any) => {
