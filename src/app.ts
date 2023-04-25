@@ -155,6 +155,7 @@ app.get('/downloads/:source', (req: Request, res: Response) => {
   const resJson: SentProjectDataPoint[] = [];
   const interval = Duration.fromMillis(hours * 60 * 60 * 1000);
   const starts: Record<string, ProjectDataPoint> = {};
+  const lasts: Record<string, ProjectDataPoint> = {};
   const startTimes: Record<string, DateTime> = {};
 
   db.each(query, source, (_err, row: ProjectDataPoint) => {
@@ -169,7 +170,7 @@ app.get('/downloads/:source', (req: Request, res: Response) => {
     if (timestamp.diff(startTimes[project]).as('milliseconds') > interval.as('milliseconds')) {
       resJson.push({
         project,
-        timestamp: startTimes[project].toMillis(),
+        timestamp: startTimes[project].plus(interval).toMillis(),
         downloads: row.downloads,
         downloads_diff: row.downloads - starts[project].downloads,
         followers: row.followers,
@@ -181,7 +182,20 @@ app.get('/downloads/:source', (req: Request, res: Response) => {
         startTimes[project] = startTimes[project].plus(interval);
       }
     }
+
+    lasts[project] = row;
   }, (_err, _count) => {
+    for (const project in lasts) {
+      resJson.push({
+        project,
+        timestamp: lasts[project].timestamp,
+        downloads: lasts[project].downloads,
+        downloads_diff: lasts[project].downloads - starts[project].downloads,
+        followers: lasts[project].followers,
+        versions: lasts[project].versions,
+      });
+    }
+
     res.send(resJson);
   });
 });
