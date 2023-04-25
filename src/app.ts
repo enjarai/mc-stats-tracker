@@ -5,7 +5,8 @@ import { Database } from 'sqlite3';
 import { parse } from 'yaml';
 import { existsSync, mkdirSync, readFileSync } from 'fs';
 import path, { dirname, resolve } from 'path';
-import { Duration } from 'luxon';
+import { DateTime, Duration } from 'luxon';
+import { ProjectData, ProjectDataPoint, SentProjectDataPoint } from './types';
 
 const config = parse(readFileSync('config.yaml', 'utf-8'));
 const app = express();
@@ -88,7 +89,7 @@ const job = new CronJob({cronTime: queryCron, onTick: async () => {
     try {
       for (const source in user.source_ids || []) {
         const sourceData = sources[source]
-        if(!sourceData.token) continue
+        if (!sourceData.token) continue
 
         const requestOptions = {
           method: 'GET',
@@ -151,25 +152,35 @@ app.get('/downloads/:source', (req: Request, res: Response) => {
     WHERE type = ? 
     ORDER BY timestamp ASC;
   `;
-  const resJson: any[] = [];
+  const resJson: SentProjectDataPoint[] = [];
   const interval = Duration.fromMillis(hours * 60 * 60 * 1000);
-  const starts: Record<string, any> = {};
-  const lasts: Record<string, any> = {}; 
+  const starts: Record<string, ProjectDataPoint> = {};
+  const startTimes: Record<string, DateTime> = {};
 
-  db.each(query, source, (_err, row: any) => {
-    resJson.push({
-      project: row.project,
-      timestamp: row.timestamp,
-      downloads: row.downloads,
-      downloads_diff: row.downloads - (lasts[row.project]?.downloads || row.downloads),
-      followers: row.followers,
-      versions: row.versions,
-    });
-    lasts[row.project] = {
-      downloads: row.downloads,
-      followers: row.followers,
-      versions: row.versions,
-    };
+  db.each(query, source, (_err, row: ProjectDataPoint) => {
+    const project = row.project;
+    const timestamp = DateTime.fromMillis(row.timestamp);
+
+    if (!starts[project]) {
+      starts[project] = row;
+      startTimes[project] = timestamp;
+    }
+
+    if (timestamp.diff(startTimes[project]).as('milliseconds') > interval.as('milliseconds')) {
+      resJson.push({
+        project,
+        timestamp: startTimes[project].toMillis(),
+        downloads: row.downloads,
+        downloads_diff: row.downloads - starts[project].downloads,
+        followers: row.followers,
+        versions: row.versions,
+      });
+
+      starts[project] = row;
+      while (timestamp.diff(startTimes[project]).as('milliseconds') > interval.as('milliseconds')) {
+        startTimes[project] = startTimes[project].plus(interval);
+      }
+    }
   }, (_err, _count) => {
     res.send(resJson);
   });

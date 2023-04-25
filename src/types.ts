@@ -1,4 +1,4 @@
-export type ProjectDataPoint = {
+export type SentProjectDataPoint = {
     project: string;
     timestamp: number;
     downloads: number;
@@ -6,3 +6,17 @@ export type ProjectDataPoint = {
     followers: number;
     versions: number;
 };
+
+export type ProjectDataPoint = {
+    project: string;
+    timestamp: number;
+    downloads: number;
+    followers: number;
+    versions: number;
+}
+
+export type ProjectData = {
+    downloads: number;
+    followers: number;
+    versions: number;
+}
